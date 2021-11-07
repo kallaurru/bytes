@@ -8,6 +8,16 @@ import (
 
 const maxLengthWord = 64
 
+// EncodeSymbol интерфейс для внутренней функции конвертации отдельного символа
+func EncodeSymbol(symbol rune) YByte {
+	return encodeSymbol(symbol)
+}
+
+// DecodeSymbol интерфейс для внутренней функции декодирования отдельного символа
+func DecodeSymbol(yb YByte, isCapital bool) rune {
+	return decodeSymbol(yb, isCapital)
+}
+
 func DecodeWord(symbols []YByte, options uint8) string {
 	return ""
 }
