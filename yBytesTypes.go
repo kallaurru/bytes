@@ -29,3 +29,24 @@ type EncodeInformation struct {
 	// направление конвертирования -0 не потребовалось, 1 - из латиницы в кириллицу, 2 - из кириллицы в латиницу
 	directionConverting uint8
 }
+
+// показываем в виде универсальных байтов
+func (ei *EncodeInformation) viewEncoding() []YByte {
+	return ei.symbols
+}
+
+// показываем как было в оригинале
+func (ei *EncodeInformation) viewOriginal() string {
+	for idx, yByte := range ei.symbols {
+
+	}
+	return ""
+}
+
+// показываем прописными буквами приведенными к одному типу символов если это возможно
+func (ei *EncodeInformation) viewClassic() string {
+	for idx, yByte := range ei.symbols {
+
+	}
+	return ""
+}
