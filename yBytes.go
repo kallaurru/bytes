@@ -42,7 +42,7 @@ func EncodeWord(word string) *EncodeInformation {
 		symbols:             make([]YByte, 0, len(runeView)),
 		errList:             make([]error, 0, 2),
 		rulePosNumbers:      0,
-		rulePosSymbols:      0,
+		rulePosSymbolsCyr:   0,
 		rulePosAnotherLang:  0,
 		isCyrillic:          true,
 		isNotConverting:     false,
