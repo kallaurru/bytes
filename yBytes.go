@@ -4,9 +4,15 @@ package yBytes
 
 import (
 	"fmt"
+	"sync"
 )
 
 const maxLengthWord = 64
+
+// EncodeFlowRunes - кодируем слово "на лету"
+func EncodeFlowRunes(channelIn chan<- rune, channelOut <-chan *EncodeInformation, wg *sync.WaitGroup) {
+
+}
 
 // EncodeSymbol интерфейс для внутренней функции конвертации отдельного символа
 func EncodeSymbol(symbol rune) YByte {

@@ -38,6 +38,7 @@ func isCurrencyFormatSymbolsWithSpace(code rune) bool {
 }
 
 func isTagBeginSymbol(code rune) bool {
+	// #
 	return code == 35
 }
 
