@@ -72,6 +72,47 @@ func isCyrillicLetter(code rune) bool {
 	return false
 }
 
+func isUpperCyrillicLetter(code rune) bool {
+	if code == 1025 {
+		return true
+	}
+	if code >= 1040 && code <= 1071 {
+		return true
+	}
+
+	return false
+}
+
+func isLowerCyrillicLetter(code rune) bool {
+	if code == 1105 {
+		return true
+	}
+	if code >= 1072 && code <= 1103 {
+		return true
+	}
+
+	return false
+}
+
+func isUpperLatinLetter(code rune) bool {
+	if code >= 65 && code <= 90 {
+		return true
+	}
+	return false
+}
+
+func isLowerLatinLetter(code rune) bool {
+	if code >= 97 && code <= 122 {
+		return true
+	}
+
+	return false
+}
+
+func isCapitalSymbol(code rune) bool {
+	return isUpperLatinLetter(code) || isUpperCyrillicLetter(code)
+}
+
 func isSymbol(code rune) bool {
 	notSymbol := isNumber(code) || isLatinLetter(code) || isCyrillicLetter(code)
 	return !notSymbol

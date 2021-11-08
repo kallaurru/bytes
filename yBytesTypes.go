@@ -2,6 +2,9 @@ package yBytes
 
 type YByte = byte
 
+type GrWordFuncFistControl func(code rune, isFirst bool) bool
+type GrWordFunc func(code rune) bool
+
 // EncodeInformation информация по декодированному слову
 // все свойства которые начинаются с rule, являются линейками позиционирования нужных символов
 // !!! Все позиционирование в линейках начинается с ноля
@@ -13,6 +16,8 @@ type EncodeInformation struct {
 	symbols []YByte
 	// позиции цифр в слове
 	rulePosNumbers uint64
+	// позиции допустимых не буквенно-цифровых символов
+	rulePosSymbols uint64
 	// позиции прописных букв в слове. Для работы с аббревиатурами
 	rulePosCapitalSymbols uint64
 	// позиции букв кириллицы в слове
