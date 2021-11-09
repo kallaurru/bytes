@@ -13,7 +13,11 @@ type EncodeInformation struct {
 	// храним список полученных ошибок в результате конвертации
 	errList []error
 	// представление кодированного слова в виде массива универсальной кодировки
-	symbols []YByte
+	original []YByte
+	// представление конвертированного слова
+	converted []YByte
+	// представление в виде рун. Кэш слова для быстрого перевода в строку. Хранится в прописных символах
+	runes []rune
 	// позиции цифр в слове
 	rulePosNumbers uint64
 	// позиции допустимых не буквенно-цифровых символов
@@ -32,21 +36,82 @@ type EncodeInformation struct {
 
 // показываем в виде универсальных байтов
 func (ei *EncodeInformation) viewEncoding() []YByte {
-	return ei.symbols
+	return ei.original
 }
 
 // показываем как было в оригинале
 func (ei *EncodeInformation) viewOriginal() string {
-	for idx, yByte := range ei.symbols {
-
+	cacheRune := make([]rune, 0, len(ei.original))
+	for pos, yByte := range ei.original {
+		mask := 1 << pos
+		isCapital := ei.rulePosCapitalSymbols&mask > 0
+		runeSymbol := decodeSymbol(yByte, isCapital)
+		cacheRune[pos] = runeSymbol
 	}
-	return ""
+	return string(cacheRune)
 }
 
 // показываем прописными буквами приведенными к одному типу символов если это возможно
 func (ei *EncodeInformation) viewClassic() string {
-	for idx, yByte := range ei.symbols {
-
+	if len(ei.runes) == 0 {
+		ei.makeCache()
 	}
-	return ""
+	return string(ei.runes)
+}
+
+// Формируем кэш рун. Все буквы строчные
+func (ei *EncodeInformation) makeCache() {
+	ei.runes = make([]rune, 0, len(ei.original))
+	symbolList := ei.original
+
+	if ei.directionConverting > 0 && ei.isNotConverting == false {
+		symbolList = ei.converted
+	}
+
+	for idx, yByte := range symbolList {
+		runeElement := decodeSymbol(yByte, false)
+		ei.runes[idx] = runeElement
+	}
+}
+
+// Пробуем конвертировать символы
+func (ei *EncodeInformation) convert() {
+	var (
+		convertingRule uint64
+	)
+	countCyr := GetCountOnBytes64(ei.rulePosSymbolsCyr)
+	countLat := GetCountOnBytes64(ei.rulePosSymbolsLat)
+	if countLat == 0 || countCyr == 0 {
+		// не нуждаемся в конвертации
+		return
+	}
+	if countCyr >= countLat {
+		// конвертируем латиницу в кириллицу
+		ei.directionConverting = 1
+		convertingRule = ei.rulePosSymbolsLat
+	} else {
+		ei.directionConverting = 2
+		convertingRule = ei.rulePosSymbolsCyr
+	}
+	ei.converted = ei.original
+	for pos, yByte := range ei.original {
+		mask := 1 << pos
+		hasSymbol := convertingRule&mask > 0
+		isCapital := ei.rulePosCapitalSymbols&mask > 0
+		if hasSymbol {
+			runeSymbol := decodeSymbol(yByte, isCapital)
+			if ei.directionConverting == 1 {
+				runeSymbol = convertLatToCyr(runeSymbol)
+			} else if ei.directionConverting == 2 {
+				runeSymbol = convertCyrToLat(runeSymbol)
+			}
+			if runeSymbol == 0 {
+				// конвертация не удалась
+				ei.isNotConverting = true
+			} else {
+				ei.converted[pos] = encodeSymbol(runeSymbol)
+			}
+		}
+	}
+
 }

@@ -58,12 +58,12 @@ func EncodeFlowRunes(channelIn <-chan rune, channelOut chan<- *EncodeInformation
 					// не критичная ситуация конвертации символа
 					encodeInformation.errList = append(encodeInformation.errList, fmt.Errorf("not converted symbol in pos - %d", position))
 				}
-				encodeInformation.symbols = append(encodeInformation.symbols, yByte)
+				encodeInformation.original = append(encodeInformation.original, yByte)
 				position++
 				// стопорим на 63 если было не стандартное слово
 				if position > 63 {
 					position = 63
-					encodeInformation.errList = append(encodeInformation.errList, fmt.Errorf("word len mehr that 63 symbols"))
+					encodeInformation.errList = append(encodeInformation.errList, fmt.Errorf("word len mehr that 63 original"))
 				}
 			}
 
@@ -118,7 +118,7 @@ func EncodeWord(word string) *EncodeInformation {
 	possibleConverting := false
 	cyrSymbolsCount := 0
 	info := EncodeInformation{
-		symbols:             make([]YByte, 0, len(runeView)),
+		original:            make([]YByte, 0, len(runeView)),
 		errList:             make([]error, 0, 2),
 		rulePosNumbers:      0,
 		rulePosSymbolsCyr:   0,
@@ -145,7 +145,7 @@ func EncodeWord(word string) *EncodeInformation {
 			continue
 		}
 
-		info.symbols = append(info.symbols, yCode)
+		info.original = append(info.original, yCode)
 	}
 	// корректируем флаг возможной конвертации. У нас по умолчанию стоит ожидание кириллицы
 	if possibleConverting && cyrSymbolsCount == 0 {
@@ -156,11 +156,11 @@ func EncodeWord(word string) *EncodeInformation {
 
 	// все таки нужна конвертация
 	if possibleConverting {
-		tmpSymbols := info.symbols
+		tmpSymbols := info.original
 		if cyrSymbolsCount < len(runeView)/2 {
 			result := ConvertingSymbols(&runeView, &tmpSymbols, false)
 			if result {
-				info.symbols = tmpSymbols
+				info.original = tmpSymbols
 				info.directionConverting = 1
 				info.isCyrillic = false
 			} else {
@@ -169,7 +169,7 @@ func EncodeWord(word string) *EncodeInformation {
 		} else {
 			result := ConvertingSymbols(&runeView, &tmpSymbols, true)
 			if result {
-				info.symbols = tmpSymbols
+				info.original = tmpSymbols
 				info.directionConverting = 0
 			} else {
 				info.isNotConverting = true
