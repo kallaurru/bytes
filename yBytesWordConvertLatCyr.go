@@ -5,7 +5,7 @@ package yBytes
 // если 0 - значит нет возможности конвертировать
 func convertCyrToLat(code rune) rune {
 	if cyrToLatMap == nil {
-		cyrToLatMap = makeMapLookTheSameSymbols(true)
+		cyrToLatMap = makeMapLookTheSameSymbols(false)
 	}
 	return convertSymbolLookTheSame(code, cyrToLatMap)
 }
@@ -14,7 +14,7 @@ func convertCyrToLat(code rune) rune {
 // по простому - буквы одинаково выглядят
 func convertLatToCyr(code rune) rune {
 	if latToCyrMap == nil {
-		latToCyrMap = makeMapLookTheSameSymbols(false)
+		latToCyrMap = makeMapLookTheSameSymbols(true)
 	}
 	return convertSymbolLookTheSame(code, latToCyrMap)
 }

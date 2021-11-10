@@ -2,7 +2,10 @@ package yBytes
 
 type YByte = byte
 
+// GrWordFuncFistControl функции контроля сборки слова. С контролем начального разрешенного символа
 type GrWordFuncFistControl func(code rune, isFirst bool) bool
+
+// GrWordFunc  функции контроля сборки слова. Без контроля первого слова
 type GrWordFunc func(code rune) bool
 
 // EncodeInformation информация по декодированному слову
@@ -34,16 +37,18 @@ type EncodeInformation struct {
 	directionConverting uint8
 }
 
-// показываем в виде универсальных байтов
-func (ei *EncodeInformation) viewEncoding() []YByte {
+// ViewEncoding показываем в виде универсальных байтов
+func (ei *EncodeInformation) ViewEncoding() []YByte {
+	ei.prepare()
 	return ei.original
 }
 
-// показываем как было в оригинале
-func (ei *EncodeInformation) viewOriginal() string {
-	cacheRune := make([]rune, 0, len(ei.original))
+// ViewOriginal показываем как было в оригинале
+func (ei *EncodeInformation) ViewOriginal() string {
+	ei.prepare()
+	cacheRune := make([]rune, len(ei.original), len(ei.original))
 	for pos, yByte := range ei.original {
-		mask := 1 << pos
+		mask := uint64(1 << pos)
 		isCapital := ei.rulePosCapitalSymbols&mask > 0
 		runeSymbol := decodeSymbol(yByte, isCapital)
 		cacheRune[pos] = runeSymbol
@@ -51,8 +56,9 @@ func (ei *EncodeInformation) viewOriginal() string {
 	return string(cacheRune)
 }
 
-// показываем прописными буквами приведенными к одному типу символов если это возможно
-func (ei *EncodeInformation) viewClassic() string {
+// ViewClassic показываем прописными буквами приведенными к одному типу символов если это возможно
+func (ei *EncodeInformation) ViewClassic() string {
+	ei.prepare()
 	if len(ei.runes) == 0 {
 		ei.makeCache()
 	}
@@ -61,7 +67,8 @@ func (ei *EncodeInformation) viewClassic() string {
 
 // Формируем кэш рун. Все буквы строчные
 func (ei *EncodeInformation) makeCache() {
-	ei.runes = make([]rune, 0, len(ei.original))
+	ei.prepare()
+	ei.runes = make([]rune, len(ei.original), len(ei.original))
 	symbolList := ei.original
 
 	if ei.directionConverting > 0 && ei.isNotConverting == false {
@@ -74,28 +81,42 @@ func (ei *EncodeInformation) makeCache() {
 	}
 }
 
+// подготовка под возможную конвертацию
+func (ei *EncodeInformation) prepare() {
+	if ei.directionConverting == 0 && (ei.rulePosSymbolsCyr == 0 || ei.rulePosSymbolsLat == 0) {
+		// подготовка под конвертацию не нужна
+		return
+	}
+	if ei.converted != nil {
+		// уже была конвертация
+		return
+	}
+	countCyr := GetCountOnBytes64(ei.rulePosSymbolsCyr)
+	countLat := GetCountOnBytes64(ei.rulePosSymbolsLat)
+	if countCyr >= countLat {
+		// конвертируем латиницу в кириллицу
+		ei.directionConverting = 1
+	} else {
+		ei.directionConverting = 2
+	}
+	ei.converted = make([]YByte, len(ei.original))
+	copy(ei.converted, ei.original)
+	ei.convert()
+}
+
 // Пробуем конвертировать символы
 func (ei *EncodeInformation) convert() {
 	var (
 		convertingRule uint64
 	)
-	countCyr := GetCountOnBytes64(ei.rulePosSymbolsCyr)
-	countLat := GetCountOnBytes64(ei.rulePosSymbolsLat)
-	if countLat == 0 || countCyr == 0 {
-		// не нуждаемся в конвертации
-		return
-	}
-	if countCyr >= countLat {
+	if ei.directionConverting == 1 {
 		// конвертируем латиницу в кириллицу
-		ei.directionConverting = 1
 		convertingRule = ei.rulePosSymbolsLat
-	} else {
-		ei.directionConverting = 2
+	} else if ei.directionConverting == 2 {
 		convertingRule = ei.rulePosSymbolsCyr
 	}
-	ei.converted = ei.original
 	for pos, yByte := range ei.original {
-		mask := 1 << pos
+		mask := uint64(1 << pos)
 		hasSymbol := convertingRule&mask > 0
 		isCapital := ei.rulePosCapitalSymbols&mask > 0
 		if hasSymbol {

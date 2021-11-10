@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-const maxLengthWord = 64
+const maxLengthWord = 63
 
 // EncodeFlowRunes - кодируем слово "на лету"
 func EncodeFlowRunes(channelIn <-chan rune, channelOut chan<- *EncodeInformation, wg *sync.WaitGroup, wordFunc GrWordFuncFistControl) {
@@ -61,8 +61,8 @@ func EncodeFlowRunes(channelIn <-chan rune, channelOut chan<- *EncodeInformation
 				encodeInformation.original = append(encodeInformation.original, yByte)
 				position++
 				// стопорим на 63 если было не стандартное слово
-				if position > 63 {
-					position = 63
+				if position > maxLengthWord {
+					position = maxLengthWord
 					encodeInformation.errList = append(encodeInformation.errList, fmt.Errorf("word len mehr that 63 original"))
 				}
 			}
@@ -83,6 +83,15 @@ func EncodeFlowRunes(channelIn <-chan rune, channelOut chan<- *EncodeInformation
 		}
 
 	}
+	// момент если шел процесс сборки слова и буфер закончился на последнем символе буфера
+	if flgProcessing {
+		flgProcessing = false
+		flgIsFirst = true
+		// обнуляем позиции для сборки нового слова
+		position = 0
+		// отправляем информацию по декодированию наружу
+		channelOut <- encodeInformation
+	}
 	close(channelOut)
 
 }
@@ -99,84 +108,6 @@ func DecodeSymbol(yb YByte, isCapital bool) rune {
 
 func DecodeWord(symbols []YByte, options uint8) string {
 	return ""
-}
-
-// EncodeWord кодируем слово в обобщенный вид для дальнейшей работы системы
-// входящее слово должно быть предварительно обработано и приведено к ожидаемому виду
-// @return nil если проблемы с длиной входящего слова
-func EncodeWord(word string) *EncodeInformation {
-	if len(word) == 0 {
-		return nil
-	}
-	// runeView вид на слово в виде кодов
-	runeView := []rune(word)
-	if len(runeView) > maxLengthWord {
-		return nil
-	}
-
-	// флаг включения механизма конвертирования. По-умолчанию выключен
-	possibleConverting := false
-	cyrSymbolsCount := 0
-	info := EncodeInformation{
-		original:            make([]YByte, 0, len(runeView)),
-		errList:             make([]error, 0, 2),
-		rulePosNumbers:      0,
-		rulePosSymbolsCyr:   0,
-		rulePosAnotherLang:  0,
-		isCyrillic:          true,
-		isNotConverting:     false,
-		directionConverting: -1,
-	}
-
-	for idx, code := range runeView {
-		// контролируем потребность в конвертации. Если она нужна то не проводим доп проверок
-		if !possibleConverting {
-			if (info.isCyrillic && isLatinLetter(code)) || (!info.isCyrillic && isCyrillicLetter(code)) {
-				possibleConverting = true
-			}
-		}
-		if isCyrillicLetter(code) {
-			cyrSymbolsCount++
-		}
-		yCode := encodeSymbol(code)
-		if yCode == 0 {
-			// нештатная ситуация добавляем ошибку
-			info.errList = append(info.errList, fmt.Errorf("code %d, idx in word = %d converted to 0", code, idx))
-			continue
-		}
-
-		info.original = append(info.original, yCode)
-	}
-	// корректируем флаг возможной конвертации. У нас по умолчанию стоит ожидание кириллицы
-	if possibleConverting && cyrSymbolsCount == 0 {
-		info.isCyrillic = false
-		// слово на латинице со всякими символами или числами
-		possibleConverting = false
-	}
-
-	// все таки нужна конвертация
-	if possibleConverting {
-		tmpSymbols := info.original
-		if cyrSymbolsCount < len(runeView)/2 {
-			result := ConvertingSymbols(&runeView, &tmpSymbols, false)
-			if result {
-				info.original = tmpSymbols
-				info.directionConverting = 1
-				info.isCyrillic = false
-			} else {
-				info.isNotConverting = true
-			}
-		} else {
-			result := ConvertingSymbols(&runeView, &tmpSymbols, true)
-			if result {
-				info.original = tmpSymbols
-				info.directionConverting = 0
-			} else {
-				info.isNotConverting = true
-			}
-		}
-	}
-	return &info
 }
 
 // ConvertingSymbols конвертируем символы, если все хорошо возвращаем true
