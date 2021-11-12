@@ -10,7 +10,12 @@ import (
 const maxLengthWord = 63
 
 // EncodeFlowRunes - кодируем слово "на лету"
-func EncodeFlowRunes(channelIn <-chan rune, channelOut chan<- *EncodeInformation, wg *sync.WaitGroup, wordFunc GrWordFuncFistControl) {
+func EncodeFlowRunes(
+	channelIn <-chan rune,
+	channelOut chan<- *EncodeInformation,
+	wg *sync.WaitGroup,
+	wordFunc GrWordFuncFistControl,
+	chanOutExternalControl bool) {
 	var (
 		// флаг признак того, что начался процесс сборки и конвертации слова
 		flgProcessing = false
@@ -92,7 +97,9 @@ func EncodeFlowRunes(channelIn <-chan rune, channelOut chan<- *EncodeInformation
 		// отправляем информацию по декодированию наружу
 		channelOut <- encodeInformation
 	}
-	close(channelOut)
+	if chanOutExternalControl == false {
+		close(channelOut)
+	}
 
 }
 

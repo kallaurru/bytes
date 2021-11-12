@@ -14,7 +14,7 @@ import (
 func TestFlowEncodingProcess(t *testing.T) {
 	// входящий текст который требуется разобрать на слова.
 	// В слове латиница последняя буква латинская
-	reader := strings.NewReader("kaserg@mail, победа, достаток")
+	reader := strings.NewReader("kaserg@mail, победа, достаток\n")
 	scan := bufio.NewScanner(reader)
 	scan.Split(bufio.ScanRunes)
 
@@ -32,7 +32,7 @@ func TestFlowEncodingProcess(t *testing.T) {
 
 	// запускаем функцию сборки слова в потоке
 	wg.Add(1)
-	go yBytes.EncodeFlowRunes(chanGeneral, chanWordInfo, wg, yBytes.GrIsAdvancedWords)
+	go yBytes.EncodeFlowRunes(chanGeneral, chanWordInfo, wg, yBytes.GrIsAdvancedWords, false)
 
 	// запускаем функцию основного потока для складирования слов
 	wg.Add(1)
