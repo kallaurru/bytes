@@ -8,10 +8,14 @@ type hashWord uint32
 func packH3(h3 *uint32, code uint32) {
 	var tmpH3, tmpHeader uint32
 
+	if (*h3) == 0 {
+		*h3 = code << 24
+		return
+	}
 	tmpH3 = (*h3) >> 8
 	tmpHeader = code << 24
 	tmpActiveH3 := tmpH3 & 0xffffff00
-	*h3 = tmpHeader & tmpActiveH3
+	*h3 = tmpHeader | tmpActiveH3
 }
 
 // packSpecialH3 - добавить доп информацию в третий хэш

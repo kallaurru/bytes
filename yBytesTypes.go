@@ -40,6 +40,16 @@ type EncodeInformation struct {
 // ViewEncoding показываем в виде универсальных байтов
 func (ei *EncodeInformation) ViewEncoding() []YByte {
 	ei.prepare()
+	out := ei.original
+	if len(ei.converted) > 0 && ei.isNotConverting == false {
+		out = ei.converted
+	}
+
+	return out
+}
+
+// ViewEncodingOriginal показываем вариант слова без конвертирования
+func (ei *EncodeInformation) ViewEncodingOriginal() []YByte {
 	return ei.original
 }
 

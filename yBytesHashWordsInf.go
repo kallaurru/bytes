@@ -11,11 +11,11 @@ func MakeHashesWord(yBytes []YByte) (uint32, uint32, uint32) {
 	for idx, code := range yBytes {
 		if idx < 4 {
 			shift := 3 - idx
-			hh |= uint32(code) << shift
+			hh |= uint32(code) << (shift * 8)
 		}
 		if ht > 0 {
 			tmp := ht >> 8
-			ht |= uint32(code) << 24
+			ht = uint32(code) << 24
 			ht |= tmp
 		} else {
 			ht |= uint32(code) << 24
