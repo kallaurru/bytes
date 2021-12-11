@@ -5,7 +5,7 @@ type YByte = byte
 // GrWordFuncFistControl функции контроля сборки слова. С контролем начального разрешенного символа
 type GrWordFuncFistControl func(code rune, isFirst bool) bool
 
-// GrWordFunc  функции контроля сборки слова. Без контроля первого слова
+// GrWordFunc функции контроля сборки слова. Без контроля первого слова
 type GrWordFunc func(code rune) bool
 
 // EncodeInformation информация по декодированному слову

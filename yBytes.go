@@ -3,11 +3,57 @@ package yBytes
 /* Основной интерфейс */
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"strings"
 	"sync"
 )
 
 const maxLengthWord = 63
+
+// EncodeLine декодируем текстовую строку. Может быть просто слово, с невалидным символом в середине будет декодировано
+// как 2 слова и более
+func EncodeLine(line string, wordValidateFunc GrWordFuncFistControl) []*EncodeInformation {
+	reader := strings.NewReader(line)
+	scan := bufio.NewScanner(reader)
+	scan.Split(bufio.ScanRunes)
+
+	// размеры
+	size := 8
+	// канал основного цикла сборки слова
+	chanRune := make(chan rune, size)
+	// канал для возврата информации по собранному слову
+	chanWordInfo := make(chan *EncodeInformation, size)
+	wg := &sync.WaitGroup{}
+	storage := make([]*EncodeInformation, 0, size)
+	wg.Add(1)
+	go EncodeFlowRunes(chanRune, chanWordInfo, wg, wordValidateFunc, false)
+	wg.Add(1)
+	go func(chIn chan<- *EncodeInformation, wg *sync.WaitGroup) {
+		defer wg.Done()
+		for ei := range chanWordInfo {
+			storage = append(storage, ei)
+		}
+	}(chanWordInfo, wg)
+
+	for scan.Scan() {
+		// получаем массив рун. Обычно это одна
+		runes := bytes.Runes(scan.Bytes())
+		for _, elem := range runes {
+			chanRune <- elem
+		}
+	}
+
+	if err := scan.Err(); err != nil {
+		close(chanRune)
+	}
+	close(chanRune)
+	// ожидаем завершения горутин
+	wg.Wait()
+
+	return storage
+}
 
 // EncodeFlowRunes - кодируем слово "на лету"
 func EncodeFlowRunes(
