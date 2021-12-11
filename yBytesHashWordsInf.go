@@ -27,6 +27,25 @@ func MakeHashesWord(yBytes []YByte) (uint32, uint32, uint32) {
 		lenW++
 	}
 
+	// формируем третий хэш если слово больше 8 букв
+	if lenW > 8 {
+		// из длины вычесть 4 буква ht и еще одну позицию, что встать на нужный индекс
+		firstPoint := lenW - 4 - 1
+		lastPoint := uint32(4)
+		switch lenW {
+		default:
+			lastPoint = firstPoint - 2
+		case 9:
+			lastPoint = firstPoint
+		case 10:
+			lastPoint = firstPoint - 1
+		}
+
+		for i := lastPoint; i <= firstPoint; i++ {
+			code := yBytes[i]
+			packH3(&h3, uint32(code))
+		}
+	}
 	// добавляем длину слова
 	packSpecialH3(&h3, lenW, false, false)
 

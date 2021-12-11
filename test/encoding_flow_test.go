@@ -64,6 +64,12 @@ func TestFlowEncodingProcess(t *testing.T) {
 	close(chanGeneral)
 	// ожидаем завершения горутин
 	wg.Wait()
+	for word, ei := range storage {
+		hh, ht, h3 := yBytes.MakeHashesWord(ei.ViewEncoding())
+		t.Log("word - ", word)
+		t.Log("hh - ", hh, "ht - ", ht, "h3 - ", h3)
+		t.Log(" ----------------- ----------------- ------------ ")
+	}
 	t.Log("map has", len(storage), "elements")
 	assert.Equal(t, 3, len(storage))
 }
