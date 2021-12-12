@@ -1,5 +1,11 @@
 package yBytes
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+)
+
 type YByte = byte
 
 // GrWordFuncFistControl функции контроля сборки слова. С контролем начального разрешенного символа
@@ -145,4 +151,69 @@ func (ei *EncodeInformation) convert() {
 		}
 	}
 
+}
+
+func (ei *EncodeInformation) PrepareToRedis() map[string]string {
+	m := make(map[string]string)
+	m["original"] = ConvertYBytes(ei.original)
+	m["converted"] = ConvertYBytes(ei.converted)
+	m["rule_pos_numbers"] = fmt.Sprintf("%v", ei.rulePosNumbers)
+	m["rule_pos_symbols"] = fmt.Sprintf("%v", ei.rulePosSymbols)
+	m["rule_pos_capital_symbols"] = fmt.Sprintf("%v", ei.rulePosCapitalSymbols)
+	m["rule_pos_symbols_cyr"] = fmt.Sprintf("%v", ei.rulePosSymbolsCyr)
+	m["rule_pos_symbols_lat"] = fmt.Sprintf("%v", ei.rulePosSymbolsLat)
+	m["direction_converting"] = fmt.Sprintf("%v", ei.directionConverting)
+	if ei.isNotConverting {
+		m["is_not_converting"] = "true"
+	} else {
+		m["is_not_converting"] = "false"
+	}
+
+	return m
+}
+
+func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
+	m["original"] = ConvertYBytes(ei.original)
+	m["converted"] = ConvertYBytes(ei.converted)
+	m["rule_pos_numbers"] = fmt.Sprintf("%v", ei.rulePosNumbers)
+	m["rule_pos_symbols"] = fmt.Sprintf("%v", ei.rulePosSymbols)
+	m["rule_pos_capital_symbols"] = fmt.Sprintf("%v", ei.rulePosCapitalSymbols)
+	m["rule_pos_symbols_cyr"] = fmt.Sprintf("%v", ei.rulePosSymbolsCyr)
+	m["rule_pos_symbols_lat"] = fmt.Sprintf("%v", ei.rulePosSymbolsLat)
+	m["direction_converting"] = fmt.Sprintf("%v", ei.directionConverting)
+	if ei.isNotConverting {
+		m["is_not_converting"] = "true"
+	} else {
+		m["is_not_converting"] = "false"
+	}
+	return nil
+}
+
+//ConvertYBytes конвертируем в строку для сохранения в redis
+func ConvertYBytes(bytes []YByte) string {
+	var out string
+	for _, b := range bytes {
+		out = fmt.Sprintf("%s,%s", out, strconv.Itoa(int(b)))
+	}
+	return strings.Trim(out, ",")
+}
+
+//ConvertToYBytes конвертируем в строку для сохранения в redis
+func ConvertToYBytes(in string) []YByte {
+	els := strings.Split(in, ",")
+	yBytes := make([]YByte, 0, 2)
+	for _, n := range els {
+		yBytes = append(yBytes, ConvertToYByte(n))
+	}
+
+	return yBytes
+}
+
+//ConvertToYByte конвертируем из строки в YByte
+func ConvertToYByte(n string) YByte {
+	tmp, err := strconv.Atoi(n)
+	if err != nil {
+		return 0
+	}
+	return YByte(tmp)
 }
