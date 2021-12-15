@@ -173,18 +173,59 @@ func (ei *EncodeInformation) PrepareToRedis() map[string]string {
 }
 
 func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
-	m["original"] = ConvertYBytes(ei.original)
-	m["converted"] = ConvertYBytes(ei.converted)
-	m["rule_pos_numbers"] = fmt.Sprintf("%v", ei.rulePosNumbers)
-	m["rule_pos_symbols"] = fmt.Sprintf("%v", ei.rulePosSymbols)
-	m["rule_pos_capital_symbols"] = fmt.Sprintf("%v", ei.rulePosCapitalSymbols)
-	m["rule_pos_symbols_cyr"] = fmt.Sprintf("%v", ei.rulePosSymbolsCyr)
-	m["rule_pos_symbols_lat"] = fmt.Sprintf("%v", ei.rulePosSymbolsLat)
-	m["direction_converting"] = fmt.Sprintf("%v", ei.directionConverting)
-	if ei.isNotConverting {
-		m["is_not_converting"] = "true"
-	} else {
-		m["is_not_converting"] = "false"
+	if val, ok := m["original"]; ok {
+		ei.original = ConvertToYBytes(val)
+	}
+	if val, ok := m["converted"]; ok {
+		ei.converted = ConvertToYBytes(val)
+	}
+
+	if val, ok := m["rule_pos_numbers"]; ok {
+		intVal, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return nil
+		}
+		ei.rulePosNumbers = intVal
+	}
+
+	if val, ok := m["rule_pos_symbols"]; ok {
+		intVal, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return nil
+		}
+		ei.rulePosSymbols = intVal
+	}
+
+	if val, ok := m["rule_pos_capital_symbols"]; ok {
+		intVal, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return nil
+		}
+		ei.rulePosCapitalSymbols = intVal
+	}
+
+	if val, ok := m["rule_pos_symbols_cyr"]; ok {
+		intVal, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return nil
+		}
+		ei.rulePosSymbolsCyr = intVal
+	}
+
+	if val, ok := m["rule_pos_symbols_lat"]; ok {
+		intVal, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return nil
+		}
+		ei.rulePosSymbolsCyr = intVal
+	}
+
+	if val, ok := m["direction_converting"]; ok {
+		if val == "true" {
+			ei.isNotConverting = true
+		} else {
+			ei.isNotConverting = false
+		}
 	}
 	return nil
 }
