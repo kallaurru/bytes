@@ -36,10 +36,10 @@ func packSpecialH3(h3 *uint32, lenWord uint32, hp, tp bool) int {
 		return 1
 	}
 	if hp {
-		*h3 |= 1 << 7
+		*h3 |= uint32(0x80)
 	}
 	if tp {
-		*h3 |= 1 << 6
+		*h3 |= uint32(0x40)
 	}
 	*h3 |= lenWord
 	return 0

@@ -51,3 +51,24 @@ func MakeHashesWord(yBytes []YByte) (uint32, uint32, uint32) {
 
 	return hh, ht, h3
 }
+
+func GetAnotherVariants(h3 uint32) []uint32 {
+	out := make([]uint32, 0, 2)
+
+	// если пришло слово с включенным шестым или седьмым битом
+	// значит нужно сформировать хэш без включенных бит (такое слово есть всегда)
+	if h3&0xc0 != 0 {
+		out = append(out, h3&0x3f)
+	}
+
+	// добавляем с включенным битом 6
+	if h3&0x40 == 0 {
+		out = append(out, h3|0x40)
+	}
+	// добавляем с включенным битом 8
+	if h3&0x80 == 0 {
+		out = append(out, h3|0x80)
+	}
+
+	return out
+}
