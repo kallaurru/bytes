@@ -244,14 +244,14 @@ func ConvertToYBytes(in string) []YByte {
 	els := strings.Split(in, ",")
 	yBytes := make([]YByte, 0, 2)
 	for _, n := range els {
-		yBytes = append(yBytes, ConvertToYByte(n))
+		yBytes = append(yBytes, ConvertSymbolAsStringToYByte(n))
 	}
 
 	return yBytes
 }
 
-//ConvertToYByte конвертируем из строки в YByte
-func ConvertToYByte(n string) YByte {
+//ConvertSymbolAsStringToYByte редис вернет YByte символ как строку. Конвертируем в число и тип YByte.
+func ConvertSymbolAsStringToYByte(n string) YByte {
 	tmp, err := strconv.Atoi(n)
 	if err != nil {
 		return 0
