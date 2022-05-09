@@ -2,6 +2,7 @@ package yBytes
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -11,7 +12,7 @@ type YByte = byte
 // GrWordFuncFistControl функции контроля сборки слова. С контролем начального разрешенного символа
 type GrWordFuncFistControl func(code rune, isFirst bool) bool
 
-// GrWordFunc функции контроля сборки слова. Без контроля первого слова
+// GrWordFunc функции контроля сборки слова. Без контроля первого символа
 type GrWordFunc func(code rune) bool
 
 // EncodeInformation информация по декодированному слову
@@ -19,28 +20,53 @@ type GrWordFunc func(code rune) bool
 // !!! Все позиционирование в линейках начинается с ноля
 // по умолчанию считается что нормальное слово  !!!! не будет больше 64 символов
 type EncodeInformation struct {
-	// храним список полученных ошибок в результате конвертации
+	// Храним список полученных ошибок в результате конвертации
 	errList []error
-	// представление кодированного слова в виде массива универсальной кодировки
+	// Представление кодированного слова в виде массива универсальной кодировки
 	original []YByte
-	// представление конвертированного слова
+	// Представление конвертированного слова
 	converted []YByte
-	// представление в виде рун. Кэш слова для быстрого перевода в строку. Хранится в прописных символах
+	// Представление в виде рун. Кэш слова для быстрого перевода в строку. Хранится в прописных символах
 	runes []rune
-	// позиции цифр в слове
+	// Позиции цифр в слове
 	rulePosNumbers uint64
-	// позиции допустимых не буквенно-цифровых символов
+	// Позиции допустимых не буквенно-цифровых символов
 	rulePosSymbols uint64
-	// позиции прописных букв в слове. Для работы с аббревиатурами
+	// Позиции прописных букв в слове. Для работы с аббревиатурами
 	rulePosCapitalSymbols uint64
-	// позиции букв кириллицы в слове
+	// Позиции букв кириллицы в слове
 	rulePosSymbolsCyr uint64
-	// позиции букв латиницы в слове
+	// Позиции букв латиницы в слове
 	rulePosSymbolsLat uint64
-	// false - существующие в слове символы оппозитной кодировки не могут быть конвертированы
+	// False - существующие в слове символы оппозитной кодировки не могут быть конвертированы
 	isNotConverting bool
-	// направление конвертирования -0 не потребовалось, 1 - из латиницы в кириллицу, 2 - из кириллицы в латиницу
+	// Направление конвертирования -0 не потребовалось, 1 - из латиницы в кириллицу, 2 - из кириллицы в латиницу
 	directionConverting uint8
+}
+
+/** Признаки слова */
+
+func (ei *EncodeInformation) IsClassicWord() bool {
+	return ei.rulePosNumbers == 0 && ei.rulePosSymbols == 0
+}
+
+func (ei *EncodeInformation) IsCyrillicWord() bool {
+	return ei.rulePosSymbolsLat == 0 && ei.rulePosSymbolsCyr > 0
+}
+
+func (ei *EncodeInformation) IsLatWord() bool {
+	return !ei.IsCyrillicWord()
+}
+
+func (ei *EncodeInformation) IsNumber() bool {
+	lenW := len(ei.original)
+	max := uint64(math.Pow(2, float64(lenW)))
+
+	return ei.rulePosNumbers == max-1
+}
+
+func (ei *EncodeInformation) Len() int {
+	return len(ei.original)
 }
 
 // ViewEncoding показываем в виде универсальных байтов
@@ -97,7 +123,7 @@ func (ei *EncodeInformation) makeCache() {
 	}
 }
 
-// подготовка под возможную конвертацию
+// Подготовка под возможную конвертацию
 func (ei *EncodeInformation) prepare() {
 	if ei.directionConverting == 0 && (ei.rulePosSymbolsCyr == 0 || ei.rulePosSymbolsLat == 0) {
 		// подготовка под конвертацию не нужна

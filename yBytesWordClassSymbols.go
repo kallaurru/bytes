@@ -4,7 +4,7 @@ func isLetter(code rune) bool {
 	return isLatinLetter(code) || isCyrillicLetter(code)
 }
 
-// символы, которые могут включать слова
+// Символы, которые могут включать слова
 func isWordSpecSymbols(code rune) bool {
 	// ` @ - _
 	if code == 45 || code == 64 || code == 95 || code == 96 {
@@ -17,21 +17,24 @@ func isWordSpecSymbols(code rune) bool {
 	return false
 }
 
+// Символы начала и конца международного формата номера телефона
 func isInternationalPhoneNumberFormatSymbolBorder(code rune) bool {
+	// +
 	return code == 43 || isNumber(code)
 }
 
+// Символы международного формата номера телефона
 func isInternationalPhoneNumberFormatSymbolBody(code rune) bool {
 	return isNumber(code) || code == 32 || code == 40 || code == 41 || code == 45
 }
 
-// форматированные суммы
+// Форматированные суммы
 func isCurrencyFormatSymbols(code rune) bool {
 	// , .
 	return code == 44 || code == 46
 }
 
-// форматированные суммы
+// Форматированные суммы
 func isCurrencyFormatSymbolsWithSpace(code rune) bool {
 	// пробел , .
 	return code == 32 || code == 44 || code == 46

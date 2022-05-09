@@ -5,12 +5,14 @@ package yBytes
 */
 
 // GrIsClassicWord - классическое слово
-func GrIsClassicWord(code rune) bool {
+func GrIsClassicWord(code rune, isFirst bool) bool {
+	// isFirst - для поддержки интерфейса
 	return isLetter(code)
 }
 
 // GrIsNumeric - классическая группа цифр
-func GrIsNumeric(code rune) bool {
+func GrIsNumeric(code rune, isFirst bool) bool {
+	// isFirst - для поддержки интерфейса
 	return isNumber(code)
 }
 
@@ -20,49 +22,4 @@ func GrIsAdvancedWords(code rune, isFirst bool) bool {
 		return isLetter(code) || isNumber(code) || isTagBeginSymbol(code)
 	}
 	return isLetter(code) || isNumber(code) || isWordSpecSymbols(code) || isTagBeginSymbol(code)
-}
-
-/**
-Сейчас до конца не проработаны эти функции.
-Замораживаем
-*/
-
-// ValidateWordClassic классическое слово, только буквы
-func ValidateWordClassic(word *string, isQuickMode bool) bool {
-	if isQuickMode {
-		return bringToCorrectFormQuick(word, vswClassicLetterWord)
-	}
-	return bringToCorrectFormFull(word, vswClassicLetterWord)
-}
-
-// ValidateWordAdvanced расширенный набор символов, может найти слова через дефис, email
-func ValidateWordAdvanced(word *string, isQuickMode bool) bool {
-	if isQuickMode {
-		return bringToCorrectFormQuick(word, vswAdvancedWord)
-	}
-	return bringToCorrectFormFull(word, vswAdvancedWord)
-}
-
-// ValidateClassicNumericWord классические числа без форматирования
-func ValidateClassicNumericWord(word *string, isQuickMode bool) bool {
-	if isQuickMode {
-		return bringToCorrectFormQuick(word, vswClassicNumericWord)
-	}
-	return bringToCorrectFormFull(word, vswClassicNumericWord)
-}
-
-// ValidateFormatSum форматированная сумма с разделением разрядов и десятых
-func ValidateFormatSum(word *string, isQuickMode bool) bool {
-	if isQuickMode {
-		return bringToCorrectFormQuick(word, vswNumericWithSymbols)
-	}
-	return bringToCorrectFormFull(word, vswNumericWithSymbols)
-}
-
-// ValidatePhoneFormat форматированные номера телефонов
-func ValidatePhoneFormat(word *string, isQuickMode bool) bool {
-	if isQuickMode {
-		return bringToCorrectFormQuick(word, vswInternationalPhoneNumberFormat)
-	}
-	return bringToCorrectFormFull(word, vswInternationalPhoneNumberFormat)
 }
