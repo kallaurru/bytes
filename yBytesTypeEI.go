@@ -4,16 +4,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 )
-
-type YByte = byte
-
-// GrWordFuncFistControl функции контроля сборки слова. С контролем начального разрешенного символа
-type GrWordFuncFistControl func(code rune, isFirst bool) bool
-
-// GrWordFunc функции контроля сборки слова. Без контроля первого символа
-type GrWordFunc func(code rune) bool
 
 // EncodeInformation информация по декодированному слову
 // все свойства которые начинаются с rule, являются линейками позиционирования нужных символов
@@ -26,6 +17,8 @@ type EncodeInformation struct {
 	original []YByte
 	// Представление конвертированного слова
 	converted []YByte
+	// Обработано символов. Важно для режима фильтрации
+	processingSymbols int
 	// Представление в виде рун. Кэш слова для быстрого перевода в строку. Хранится в прописных символах
 	runes []rune
 	// Позиции цифр в слове
@@ -38,6 +31,8 @@ type EncodeInformation struct {
 	rulePosSymbolsCyr uint64
 	// Позиции букв латиницы в слове
 	rulePosSymbolsLat uint64
+	// Информация создавалась в режиме разборки слов, false - в режиме фильтрации
+	isParsingMode bool
 	// False - существующие в слове символы оппозитной кодировки не могут быть конвертированы
 	isNotConverting bool
 	// Направление конвертирования -0 не потребовалось, 1 - из латиницы в кириллицу, 2 - из кириллицы в латиницу
@@ -63,6 +58,18 @@ func (ei *EncodeInformation) IsNumber() bool {
 	max := uint64(math.Pow(2, float64(lenW)))
 
 	return ei.rulePosNumbers == max-1
+}
+
+func (ei *EncodeInformation) SetMode(isParsing bool) {
+	ei.isParsingMode = isParsing
+}
+
+func (ei *EncodeInformation) IsParsingMode() bool {
+	return ei.isParsingMode
+}
+
+func (ei *EncodeInformation) ProcessingSymbols() int {
+	return ei.processingSymbols
 }
 
 func (ei *EncodeInformation) Len() int {
@@ -183,6 +190,7 @@ func (ei *EncodeInformation) PrepareToRedis() map[string]string {
 	m := make(map[string]string)
 	m["original"] = ConvertYBytes(ei.original)
 	m["converted"] = ConvertYBytes(ei.converted)
+	m["processing_symbols"] = fmt.Sprintf("%d", ei.processingSymbols)
 	m["rule_pos_numbers"] = fmt.Sprintf("%v", ei.rulePosNumbers)
 	m["rule_pos_symbols"] = fmt.Sprintf("%v", ei.rulePosSymbols)
 	m["rule_pos_capital_symbols"] = fmt.Sprintf("%v", ei.rulePosCapitalSymbols)
@@ -193,6 +201,11 @@ func (ei *EncodeInformation) PrepareToRedis() map[string]string {
 		m["is_not_converting"] = "true"
 	} else {
 		m["is_not_converting"] = "false"
+	}
+	if ei.isParsingMode {
+		m["is_parsing_mode"] = "true"
+	} else {
+		m["is_parsing_mode"] = "false"
 	}
 
 	return m
@@ -205,11 +218,17 @@ func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
 	if val, ok := m["converted"]; ok {
 		ei.converted = ConvertToYBytes(val)
 	}
-
+	if val, ok := m["processing_symbols"]; ok {
+		intVal, err := strconv.ParseInt(val, 10, 32)
+		if err != nil {
+			return err
+		}
+		ei.processingSymbols = int(intVal)
+	}
 	if val, ok := m["rule_pos_numbers"]; ok {
 		intVal, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
-			return nil
+			return err
 		}
 		ei.rulePosNumbers = intVal
 	}
@@ -217,7 +236,7 @@ func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
 	if val, ok := m["rule_pos_symbols"]; ok {
 		intVal, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
-			return nil
+			return err
 		}
 		ei.rulePosSymbols = intVal
 	}
@@ -225,7 +244,7 @@ func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
 	if val, ok := m["rule_pos_capital_symbols"]; ok {
 		intVal, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
-			return nil
+			return err
 		}
 		ei.rulePosCapitalSymbols = intVal
 	}
@@ -233,7 +252,7 @@ func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
 	if val, ok := m["rule_pos_symbols_cyr"]; ok {
 		intVal, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
-			return nil
+			return err
 		}
 		ei.rulePosSymbolsCyr = intVal
 	}
@@ -241,7 +260,7 @@ func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
 	if val, ok := m["rule_pos_symbols_lat"]; ok {
 		intVal, err := strconv.ParseUint(val, 10, 64)
 		if err != nil {
-			return nil
+			return err
 		}
 		ei.rulePosSymbolsCyr = intVal
 	}
@@ -253,34 +272,14 @@ func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
 			ei.isNotConverting = false
 		}
 	}
+
+	if val, ok := m["parsing_mode"]; ok {
+		if val == "true" {
+			ei.isParsingMode = true
+		} else {
+			ei.isParsingMode = false
+		}
+	}
+
 	return nil
-}
-
-//ConvertYBytes конвертируем в строку для сохранения в redis
-func ConvertYBytes(bytes []YByte) string {
-	var out string
-	for _, b := range bytes {
-		out = fmt.Sprintf("%s,%s", out, strconv.Itoa(int(b)))
-	}
-	return strings.Trim(out, ",")
-}
-
-//ConvertToYBytes конвертируем в строку для сохранения в redis
-func ConvertToYBytes(in string) []YByte {
-	els := strings.Split(in, ",")
-	yBytes := make([]YByte, 0, 2)
-	for _, n := range els {
-		yBytes = append(yBytes, ConvertSymbolAsStringToYByte(n))
-	}
-
-	return yBytes
-}
-
-//ConvertSymbolAsStringToYByte редис вернет YByte символ как строку. Конвертируем в число и тип YByte.
-func ConvertSymbolAsStringToYByte(n string) YByte {
-	tmp, err := strconv.Atoi(n)
-	if err != nil {
-		return 0
-	}
-	return YByte(tmp)
 }

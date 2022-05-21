@@ -56,11 +56,6 @@ func decodeSymbol(yb YByte, isCapital bool) rune {
 	return 0
 }
 
-// DecodeSpecialYByte декодируем доп информацию которая может быть рядом со словом
-func DecodeSpecialYByte(yByte []YByte) uint32 {
-	return 0
-}
-
 // encodeSymbol кодируем текущие символы слова для внутреннего использования системой
 // все заглавные кодируем в прописные буквы
 // кодировка:
