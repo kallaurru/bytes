@@ -4,48 +4,52 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 )
 
-// EncodeLine декодируем текстовую строку. Может быть, просто слово, с невалидным символом в середине будет декодировано
-// как 2 слова и более.
-func EncodeLine(line string, wordValidateFunc GrWordFuncFistControl) []*EncodeInformation {
-	reader := strings.NewReader(line)
-	scan := bufio.NewScanner(reader)
+func FilterWord(r io.Reader, wordFilterFunc FilterWordFunc) *EncodeInformation {
+	var (
+		scan     = bufio.NewScanner(r)
+		chanRune = make(chan rune, chanSizeDefault)
+		chanEI   = make(chan *EncodeInformation, chanSizeDefault) // закрывает EIBuilder
+		wg       = &sync.WaitGroup{}
+	)
+	// Создаем поток для сборки EI
+	wg.Add(1)
+	go EIBuilderPipe(chanRune, chanEI, wg)
+
+	// Сканируем руны
 	scan.Split(bufio.ScanRunes)
-
-	// размеры
-	size := 8
-	// канал основного цикла сборки слова
-	chanRune := make(chan rune, size)
-	// канал для возврата информации по собранному слову
-	chanWordInfo := make(chan *EncodeInformation, size)
-	wg := &sync.WaitGroup{}
-	storage := make([]*EncodeInformation, 0, size)
 	wg.Add(1)
-	go EncodeFlowRunes(chanRune, chanWordInfo, wg, wordValidateFunc, false)
+	go processScanFilterMode(chanRune, wg, scan, wordFilterFunc)
+	ei := <-chanEI
+
+	return ei
+}
+
+func EncoderWords(r io.Reader, wordValidateFunc ValidationWordFunc) []*EncodeInformation {
+	var (
+		scan     = bufio.NewScanner(r)
+		chanRune = make(chan rune, chanSizeDefault)
+		chanEI   = make(chan *EncodeInformation, chanSizeDefault) // закрывает EIBuilder
+		storage  = make([]*EncodeInformation, 0, chanSizeDefault)
+		wg       = &sync.WaitGroup{}
+	)
+	// Создаем поток для сборки EI
 	wg.Add(1)
-	go func(chIn chan<- *EncodeInformation, wg *sync.WaitGroup) {
-		defer wg.Done()
-		for ei := range chanWordInfo {
-			storage = append(storage, ei)
-		}
-	}(chanWordInfo, wg)
+	go EIBuilderPipe(chanRune, chanEI, wg)
 
-	for scan.Scan() {
-		// Получаем массив рун. Обычно это одна
-		runes := bytes.Runes(scan.Bytes())
-		for _, elem := range runes {
-			chanRune <- elem
-		}
-	}
+	// Создаем поток для заполнения хранилища
+	wg.Add(1)
+	go processAddToStorage(chanEI, wg, &storage)
 
-	if err := scan.Err(); err != nil {
-		close(chanRune)
-	}
-	close(chanRune)
-	// ожидаем завершения горутин
+	// подключаем к сканеру нужную функцию и запускаем процесс сканирования.
+	scan.Split(bufio.ScanRunes)
+	wg.Add(1)
+	go processScanParserMode(chanRune, wg, scan, wordValidateFunc)
+
 	wg.Wait()
 
 	return storage
@@ -57,18 +61,63 @@ func EIBuilderPipe(
 	wg *sync.WaitGroup) {
 
 	var (
-		ei *EncodeInformation
+		ei       *EncodeInformation
+		position = 0 // Позиция в текущем слове
 	)
 	defer wg.Done()
 
 	for runeCode := range channelIn {
 		if runeCode == 0 {
 			channelOut <- ei
+			// Обнулить параметры
+			ei = nil
+			position = 0
 			continue
 		}
 
-	}
+		if position == 0 {
+			ei = new(EncodeInformation)
+			ei.AddUuid()
+		}
+		if ei == nil {
+			continue
+		}
 
+		if isCyrillicLetter(runeCode) {
+			ei.rulePosSymbolsCyr |= 1 << position
+		}
+		if isLatinLetter(runeCode) {
+			ei.rulePosSymbolsLat |= 1 << position
+		}
+		if isNumber(runeCode) {
+			ei.rulePosNumbers |= 1 << position
+		}
+		if isCapitalSymbol(runeCode) {
+			ei.rulePosCapitalSymbols |= 1 << position
+		}
+		if isSymbol(runeCode) {
+			ei.rulePosSymbols |= 1 << position
+		}
+		yByte := encodeSymbol(runeCode)
+		if yByte == 0 {
+			// не критичная ситуация конвертации символа
+			ei.errList = append(ei.errList, fmt.Errorf("not converted symbol in pos - %d", position))
+		}
+		ei.original = append(ei.original, yByte)
+		ei.processingSymbols += 1
+
+		position++
+		// стопорим на 63 если было не стандартное слово
+		if position > maxLengthWord {
+			position = maxLengthWord
+			ei.errList = append(ei.errList, fmt.Errorf("word len mehr that %d max size", maxLengthWord))
+		}
+	}
+	// момент если шел процесс сборки слова и буфер закончился на последнем символе буфера.
+	if ei != nil {
+		channelOut <- ei
+	}
+	close(channelOut)
 }
 
 // EncodeFlowRunes - кодируем слово "на лету"
@@ -76,15 +125,15 @@ func EncodeFlowRunes(
 	channelIn <-chan rune,
 	channelOut chan<- *EncodeInformation,
 	wg *sync.WaitGroup,
-	wordFunc GrWordFuncFistControl,
+	wordFunc ValidationWordFunc,
 	chanOutExternalControl bool) {
 	var (
-		// флаг признак того, что начался процесс сборки и конвертации слова
+		// Флаг признак того, что начался процесс сборки и конвертации слова
 		flgProcessing = false
-		// флаг прочтения первой буквы. Нужен для проверочной функции сборки слова
+		// Флаг прочтения первой буквы. Нужен для проверочной функции сборки слова
 		flgIsFirst        = true
 		encodeInformation *EncodeInformation
-		// текущая позиция в слове. Диапазон от 0 до 63
+		// Текущая позиция в слове. Диапазон от 0 до 63
 		position int = 0
 	)
 	defer wg.Done()
@@ -202,4 +251,48 @@ func DecodeWord(symbols []YByte, options uint8) string {
 	}
 
 	return string(out)
+}
+
+// EncodeLine декодируем текстовую строку. Может быть, просто слово, с невалидным символом в середине будет декодировано
+// как 2 слова и более.
+func EncodeLine(line string, wordValidateFunc ValidationWordFunc) []*EncodeInformation {
+	reader := strings.NewReader(line)
+	scan := bufio.NewScanner(reader)
+	scan.Split(bufio.ScanRunes)
+
+	// размеры
+	size := 8
+	// канал основного цикла сборки слова
+	chanRune := make(chan rune, size)
+	// канал для возврата информации по собранному слову
+	chanWordInfo := make(chan *EncodeInformation, size)
+	wg := &sync.WaitGroup{}
+	storage := make([]*EncodeInformation, 0, size)
+	wg.Add(1)
+	go EncodeFlowRunes(chanRune, chanWordInfo, wg, wordValidateFunc, false)
+	wg.Add(1)
+	go func(chIn chan<- *EncodeInformation, wg *sync.WaitGroup) {
+		defer wg.Done()
+		for ei := range chanWordInfo {
+			storage = append(storage, ei)
+		}
+	}(chanWordInfo, wg)
+
+	for scan.Scan() {
+		// Получаем массив рун. Обычно это одна
+		runes := bytes.Runes(scan.Bytes())
+		for _, elem := range runes {
+			chanRune <- elem
+		}
+	}
+
+	if err := scan.Err(); err != nil {
+		close(chanRune)
+	} else {
+		close(chanRune)
+	}
+	// ожидаем завершения горутин
+	wg.Wait()
+
+	return storage
 }

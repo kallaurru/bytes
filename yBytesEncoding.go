@@ -1,5 +1,12 @@
 package yBytes
 
+import (
+	"bufio"
+	"bytes"
+	slUtils "github.com/kallaurru/utils"
+	"sync"
+)
+
 var latToCyrMap *map[rune]rune
 var cyrToLatMap *map[rune]rune
 
@@ -103,4 +110,96 @@ func encodeSymbol(symbol rune) YByte {
 	}
 
 	return 0
+}
+
+func processAddToStorage(
+	chanEI <-chan *EncodeInformation,
+	wg *sync.WaitGroup,
+	ptrStorage *[]*EncodeInformation) {
+
+	defer wg.Done()
+
+	var counter uint64 = 0
+
+	for ei := range chanEI {
+		if ei == nil {
+			continue
+		}
+		ei.AddFlowPosition(counter)
+		ei.SetMode(true)
+		*ptrStorage = append(*ptrStorage, ei)
+		counter++
+	}
+
+}
+
+func processScanParserMode(
+	chanRune chan<- rune,
+	wg *sync.WaitGroup,
+	scan *bufio.Scanner,
+	wordValidateFunc ValidationWordFunc) {
+
+	var (
+		flgIsFirst      = true
+		flgIsProcessing = false
+	)
+	defer wg.Done()
+
+	for scan.Scan() {
+		// Получаем массив рун. Обычно это одна
+		runes := bytes.Runes(scan.Bytes())
+		for _, elem := range runes {
+			isValid := wordValidateFunc(elem, flgIsFirst)
+			if isValid {
+				if flgIsFirst {
+					slUtils.SwitcherRefOff(&flgIsFirst)
+					if !flgIsProcessing {
+						slUtils.SwitcherRefOn(&flgIsProcessing)
+					}
+				}
+				chanRune <- elem
+			} else if flgIsProcessing {
+				slUtils.SwitcherRefOff(&flgIsProcessing)
+				slUtils.SwitcherRefOn(&flgIsFirst)
+				chanRune <- 0
+			}
+		}
+	}
+
+	close(chanRune)
+}
+
+func processScanFilterMode(
+	chanRune chan<- rune,
+	wg *sync.WaitGroup,
+	scan *bufio.Scanner,
+	wordFilterFunc FilterWordFunc) {
+
+	var (
+		flgIsFirst = true
+		counter    = 0
+	)
+	defer wg.Done()
+
+	for scan.Scan() {
+		// Получаем массив рун. Обычно это одна
+		runes := bytes.Runes(scan.Bytes())
+		for _, elem := range runes {
+			isValid := wordFilterFunc(elem)
+			if isValid {
+				if flgIsFirst {
+					slUtils.SwitcherRefOff(&flgIsFirst)
+				}
+				chanRune <- elem
+			} else {
+				continue
+			}
+			if counter > maxLengthWord {
+				break
+			}
+			counter++
+		}
+	}
+
+	close(chanRune)
 }

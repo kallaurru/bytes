@@ -2,6 +2,7 @@ package yBytes
 
 import (
 	"fmt"
+	"github.com/satori/go.uuid"
 	"math"
 	"strconv"
 )
@@ -33,10 +34,14 @@ type EncodeInformation struct {
 	rulePosSymbolsLat uint64
 	// Информация создавалась в режиме разборки слов, false - в режиме фильтрации
 	isParsingMode bool
-	// False - существующие в слове символы оппозитной кодировки не могут быть конвертированы
+	// False - существующие в слове символы оппозитной кодировки не могут быть конвертированы.
 	isNotConverting bool
 	// Направление конвертирования -0 не потребовалось, 1 - из латиницы в кириллицу, 2 - из кириллицы в латиницу
 	directionConverting uint8
+	// Позиция в потоке, для позиционирования в деревьях или графах
+	posInFlow uint64
+	// Для унификации и построения индексов. Используем uuid v.4
+	uuid string
 }
 
 /** Признаки слова */
@@ -62,6 +67,14 @@ func (ei *EncodeInformation) IsNumber() bool {
 
 func (ei *EncodeInformation) SetMode(isParsing bool) {
 	ei.isParsingMode = isParsing
+}
+
+func (ei *EncodeInformation) AddUuid() {
+	ei.uuid = uuid.NewV4().String()
+}
+
+func (ei *EncodeInformation) AddFlowPosition(pos uint64) {
+	ei.posInFlow = pos
 }
 
 func (ei *EncodeInformation) IsParsingMode() bool {
@@ -188,8 +201,10 @@ func (ei *EncodeInformation) convert() {
 
 func (ei *EncodeInformation) PrepareToRedis() map[string]string {
 	m := make(map[string]string)
+	m["uuid"] = ei.uuid
 	m["original"] = ConvertYBytes(ei.original)
 	m["converted"] = ConvertYBytes(ei.converted)
+	m["pos_in_flow"] = fmt.Sprintf("%v", ei.posInFlow)
 	m["processing_symbols"] = fmt.Sprintf("%d", ei.processingSymbols)
 	m["rule_pos_numbers"] = fmt.Sprintf("%v", ei.rulePosNumbers)
 	m["rule_pos_symbols"] = fmt.Sprintf("%v", ei.rulePosSymbols)
@@ -212,6 +227,9 @@ func (ei *EncodeInformation) PrepareToRedis() map[string]string {
 }
 
 func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
+	if val, ok := m["uuid"]; ok {
+		ei.uuid = val
+	}
 	if val, ok := m["original"]; ok {
 		ei.original = ConvertToYBytes(val)
 	}
@@ -231,6 +249,14 @@ func (ei *EncodeInformation) UpdateFromRedis(m map[string]string) error {
 			return err
 		}
 		ei.rulePosNumbers = intVal
+	}
+
+	if val, ok := m["pos_in_flow"]; ok {
+		intVal, err := strconv.ParseUint(val, 10, 64)
+		if err != nil {
+			return err
+		}
+		ei.posInFlow = intVal
 	}
 
 	if val, ok := m["rule_pos_symbols"]; ok {

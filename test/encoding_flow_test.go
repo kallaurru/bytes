@@ -32,7 +32,7 @@ func TestFlowEncodingProcess(t *testing.T) {
 
 	// запускаем функцию сборки слова в потоке
 	wg.Add(1)
-	go yBytes.EncodeFlowRunes(chanGeneral, chanWordInfo, wg, yBytes.GrIsAdvancedWords, false)
+	go yBytes.EncodeFlowRunes(chanGeneral, chanWordInfo, wg, yBytes.ValidIsAdvWord, false)
 
 	// запускаем функцию основного потока для складирования слов
 	wg.Add(1)
