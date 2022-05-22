@@ -24,8 +24,9 @@ func isInternationalPhoneNumberFormatSymbolBorder(code rune) bool {
 }
 
 // Символы международного формата номера телефона
-func isInternationalPhoneNumberFormatSymbolBody(code rune) bool {
-	return isNumber(code) || code == 32 || code == 40 || code == 41 || code == 45
+func isInternationalPhoneFormatFull(code rune) bool {
+	// пробел + ( ) -
+	return isNumber(code) || code == 32 || code == 40 || code == 41 || code == 45 || code == 43
 }
 
 // Форматированные суммы

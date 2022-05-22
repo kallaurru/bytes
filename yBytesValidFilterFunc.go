@@ -39,3 +39,7 @@ func FIsFormattedNumber(code rune) bool {
 	// 32 - пробел,
 	return isNumber(code) || code == 32 || isCurrencyFormatSymbols(code)
 }
+
+func FIsPhoneNumberFormattedInter(code rune) bool {
+	return isInternationalPhoneFormatFull(code)
+}
